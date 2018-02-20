@@ -17,7 +17,7 @@ This tutorial assumes a default data center region and resource group have been 
 If you are using the `az` command-line tool for the first time `login` is the easiest way to do this:
 
 ```
-gcloud login
+az login
 ```
 
 Let's create the resource group for our deployment, and configure the CLI to use this resource group (and its location) as default. It is recommended to create a new resource group for this walkthrough, as we'll remove it in the [Final step](14-cleanup.md).
