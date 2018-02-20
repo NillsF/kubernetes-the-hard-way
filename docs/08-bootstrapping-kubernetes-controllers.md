@@ -190,7 +190,7 @@ etcd-0               Healthy   {"health": "true"}
 etcd-1               Healthy   {"health": "true"}
 ```
 
-> Remember to run the above commands on each controller node: `controller-0`, `controller-1`, and `controller-2`.
+> Remember to run the above commands on each controller node: `k8s-ctrl-0`, `k8s-ctrl-1`, and `k8s-ctrl-2`.
 
 ## RBAC for Kubelet Authorization
 
@@ -256,29 +256,46 @@ In this section you will provision an external load balancer to front the Kubern
 
 > The compute instances created in this tutorial will not have permission to complete this section. Run the following commands from the same machine used to create the compute instances.
 
-Create the external load balancer network resources:
+Create the load balancer network resources:
 
 ```
-gcloud compute target-pools create kubernetes-target-pool
-```
-
-```
-gcloud compute target-pools add-instances kubernetes-target-pool \
-  --instances controller-0,controller-1,controller-2
+az network lb create -n k8s-lb --public-ip-address k8s-ip
 ```
 
 ```
-KUBERNETES_PUBLIC_ADDRESS=$(gcloud compute addresses describe kubernetes-the-hard-way \
-  --region $(gcloud config get-value compute/region) \
-  --format 'value(name)')
+az network lb address-pool create -n k8s-ctrl-pool --lb-name k8s-lb
 ```
 
 ```
-gcloud compute forwarding-rules create kubernetes-forwarding-rule \
-  --address ${KUBERNETES_PUBLIC_ADDRESS} \
-  --ports 6443 \
-  --region $(gcloud config get-value compute/region) \
-  --target-pool kubernetes-target-pool
+for i in 0 1 2; do
+  az network nic ip-config address-pool add --nic-name k8s-ctrl-${i}VMNic \
+  --ip-config-name ipconfigk8s-ctrl-${i} \
+  --address-pool k8s-ctrl-pool \
+  --lb-name k8s-lb
+done
+
+```
+
+```
+az network lb probe create \
+    --lb-name k8s-lb \
+    --name k8s-health \
+    --protocol tcp \
+    --port 6443
+```
+
+
+
+```
+az network lb rule create \
+    --lb-name k8s-lb \
+    --name k8s-6443-rule \
+    --protocol tcp \
+    --frontend-port 6443 \
+    --backend-port 6443 \
+    --frontend-ip-name LoadBalancerFrontEnd \
+    --backend-pool-name k8s-ctrl-pool \
+    --probe-name k8s-health
 ```
 
 ### Verification
@@ -286,9 +303,9 @@ gcloud compute forwarding-rules create kubernetes-forwarding-rule \
 Retrieve the `kubernetes-the-hard-way` static IP address:
 
 ```
-KUBERNETES_PUBLIC_ADDRESS=$(gcloud compute addresses describe kubernetes-the-hard-way \
-  --region $(gcloud config get-value compute/region) \
-  --format 'value(address)')
+KUBERNETES_PUBLIC_ADDRESS=$(az network public-ip show --n k8s-ip \
+  --query ipAddress \
+  -o tsv)
 ```
 
 Make a HTTP request for the Kubernetes version info:
