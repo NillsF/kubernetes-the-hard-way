@@ -71,9 +71,9 @@ Access    DestinationAddressPrefix    Direction    Name                  Priorit
 --------  --------------------------  -----------  ------------------  ----------  ----------  -------------------  ----------------  ---------------------  -----------------  ----------------------
 Allow     VirtualNetwork              Inbound      k8s-ssh-https             1000  Tcp         Succeeded            k8s-the-hard-way  0.0.0.0/0              0-65535
 Allow     VirtualNetwork              Inbound      k8s-internal              1010  *           Succeeded            k8s-the-hard-way  VirtualNetwork         *                  *
-Deny      0.0.0.0/0                   Inbound      k8s-deny-other-UDP        1030  Udp         Succeeded            k8s-the-hard-way  0.0.0.0/0              *                  *
-Deny      0.0.0.0/0                   Inbound      k8s-deny-other-tcp        1020  Tcp         Succeeded            k8s-the-hard-way  0.0.0.0/0              *                  *
-Allow     0.0.0.0/0                   Inbound      k8s-allow-icmp            1040  *           Succeeded            k8s-the-hard-way  0.0.0.0/0              *                  *
+Deny      0.0.0.0/0                   Inbound      k8s-deny-other-UDP        4030  Udp         Succeeded            k8s-the-hard-way  0.0.0.0/0              *                  *
+Deny      0.0.0.0/0                   Inbound      k8s-deny-other-tcp        4020  Tcp         Succeeded            k8s-the-hard-way  0.0.0.0/0              *                  *
+Allow     0.0.0.0/0                   Inbound      k8s-allow-icmp            4040  *           Succeeded            k8s-the-hard-way  0.0.0.0/0              *                  *
 ```
 
 Last step is to link this NSG to our subnet.
@@ -180,7 +180,7 @@ done
 
 ### Verification
 
-List the compute instances in your default compute zone:
+List the compute instances in your resource group:
 
 ```
 az vm list --output table
