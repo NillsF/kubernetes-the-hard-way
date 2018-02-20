@@ -15,9 +15,9 @@ Each kubeconfig requires a Kubernetes API Server to connect to. To support high 
 Retrieve the `kubernetes-the-hard-way` static IP address:
 
 ```
-KUBERNETES_PUBLIC_ADDRESS=$(gcloud compute addresses describe kubernetes-the-hard-way \
-  --region $(gcloud config get-value compute/region) \
-  --format 'value(address)')
+KUBERNETES_PUBLIC_ADDRESS=$(az network public-ip show --n k8s-ip \
+  --query ipAddress \
+  -o tsv)
 ```
 
 ### The kubelet Kubernetes Configuration File
@@ -27,7 +27,7 @@ When generating kubeconfig files for Kubelets the client certificate matching th
 Generate a kubeconfig file for each worker node:
 
 ```
-for instance in worker-0 worker-1 worker-2; do
+for instance in k8s-worker-0 k8s-worker-1 k8s-worker-2; do
   kubectl config set-cluster kubernetes-the-hard-way \
     --certificate-authority=ca.pem \
     --embed-certs=true \
@@ -93,8 +93,9 @@ kubectl config use-context default --kubeconfig=kube-proxy.kubeconfig
 Copy the appropriate `kubelet` and `kube-proxy` kubeconfig files to each worker instance:
 
 ```
-for instance in worker-0 worker-1 worker-2; do
-  gcloud compute scp ${instance}.kubeconfig kube-proxy.kubeconfig ${instance}:~/
+for instance in k8s-worker-0 k8s-worker-1 k8s-worker-2; do
+  EXTERNAL_IP=$(az network public-ip show -n ${instance}PublicIP --query ipAddress -o tsv)
+  scp ${instance}.kubeconfig kube-proxy.kubeconfig ${EXTERNAL_IP}:~/
 done
 ```
 

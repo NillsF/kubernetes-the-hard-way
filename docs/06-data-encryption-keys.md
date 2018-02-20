@@ -35,8 +35,9 @@ EOF
 Copy the `encryption-config.yaml` encryption config file to each controller instance:
 
 ```
-for instance in controller-0 controller-1 controller-2; do
-  gcloud compute scp encryption-config.yaml ${instance}:~/
+for instance in k8s-ctrl-0 k8s-ctrl-1 k8s-ctrl-2; do
+  EXTERNAL_IP=$(az network public-ip show -n ${instance}PublicIP --query ipAddress -o tsv)
+  scp encryption-config.yaml ${EXTERNAL_IP}:~/
 done
 ```
 

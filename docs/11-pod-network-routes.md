@@ -1,6 +1,6 @@
 # Provisioning Pod Network Routes
 
-Pods scheduled to a node receive an IP address from the node's Pod CIDR range. At this point pods can not communicate with other pods running on different nodes due to missing network [routes](https://cloud.google.com/compute/docs/vpc/routes).
+Pods scheduled to a node receive an IP address from the node's Pod CIDR range. At this point pods can not communicate with other pods running on different nodes due to missing network [routes](https://docs.microsoft.com/en-us/azure/virtual-network/virtual-networks-udr-overview#user-defined).
 
 In this lab you will create a route for each worker node that maps the node's Pod CIDR range to the node's internal IP address.
 
@@ -8,53 +8,45 @@ In this lab you will create a route for each worker node that maps the node's Po
 
 ## The Routing Table
 
-In this section you will gather the information required to create routes in the `kubernetes-the-hard-way` VPC network.
+In this section you will gather the information required to create routes in the `kubernetes-the-hard-way` VNET.
 
-Print the internal IP address and Pod CIDR range for each worker instance:
-
-```
-for instance in worker-0 worker-1 worker-2; do
-  gcloud compute instances describe ${instance} \
-    --format 'value[separator=" "](networkInterfaces[0].networkIP,metadata.items[0].value)'
-done
-```
-
-> output
-
-```
-10.240.0.20 10.200.0.0/24
-10.240.0.21 10.200.1.0/24
-10.240.0.22 10.200.2.0/24
-```
 
 ## Routes
 
 Create network routes for each worker instance:
 
 ```
+az network route-table create --name k8s-workers
 for i in 0 1 2; do
-  gcloud compute routes create kubernetes-route-10-200-${i}-0-24 \
-    --network kubernetes-the-hard-way \
-    --next-hop-address 10.240.0.2${i} \
-    --destination-range 10.200.${i}.0/24
-done
+  az network route-table route create --name kubernetes-route-10-200-${i}-0-24 \
+    --route-table-name k8s-workers \
+    --next-hop-ip-address 10.240.0.2${i} \
+    --address-prefix 10.200.${i}.0/24 \
+    --next-hop-type VirtualAppliance
+done		
 ```
 
-List the routes in the `kubernetes-the-hard-way` VPC network:
+Now we need to link this route table to our subnet:
 
 ```
-gcloud compute routes list --filter "network: kubernetes-the-hard-way"
+az network vnet subnet update --name k8s-cluster --vnet-name k8s-the-hard-way --route-table k8s-workers
+```
+
+
+List the routes in the `k8s-workers` route table:
+
+```
+az network route-table route list --route-table-name k8s-workers
 ```
 
 > output
 
 ```
-NAME                            NETWORK                  DEST_RANGE     NEXT_HOP                  PRIORITY
-default-route-236a40a8bc992b5b  kubernetes-the-hard-way  0.0.0.0/0      default-internet-gateway  1000
-default-route-df77b1e818a56b30  kubernetes-the-hard-way  10.240.0.0/24                            1000
-kubernetes-route-10-200-0-0-24  kubernetes-the-hard-way  10.200.0.0/24  10.240.0.20               1000
-kubernetes-route-10-200-1-0-24  kubernetes-the-hard-way  10.200.1.0/24  10.240.0.21               1000
-kubernetes-route-10-200-2-0-24  kubernetes-the-hard-way  10.200.2.0/24  10.240.0.22               1000
+AddressPrefix    Name                            NextHopIpAddress    NextHopType       ProvisioningState    ResourceGroup
+---------------  ------------------------------  ------------------  ----------------  -------------------  ----------------
+10.200.0.0/24    kubernetes-route-10-200-0-0-24  10.240.0.20         VirtualAppliance  Succeeded            k8s-the-hard-way
+10.200.1.0/24    kubernetes-route-10-200-1-0-24  10.240.0.21         VirtualAppliance  Succeeded            k8s-the-hard-way
+10.200.2.0/24    kubernetes-route-10-200-2-0-24  10.240.0.22         VirtualAppliance  Succeeded            k8s-the-hard-way
 ```
 
 Next: [Deploying the DNS Cluster Add-on](12-dns-addon.md)

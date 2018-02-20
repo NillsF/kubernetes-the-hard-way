@@ -116,7 +116,7 @@ Kubernetes uses a [special-purpose authorization mode](https://kubernetes.io/doc
 Generate a certificate and private key for each Kubernetes worker node:
 
 ```
-for instance in worker-0 worker-1 worker-2; do
+for instance in k8s-worker-0 k8s-worker-1 k8s-worker-2; do
 cat > ${instance}-csr.json <<EOF
 {
   "CN": "system:node:${instance}",
@@ -136,12 +136,9 @@ cat > ${instance}-csr.json <<EOF
 }
 EOF
 
-EXTERNAL_IP=$(gcloud compute instances describe ${instance} \
-  --format 'value(networkInterfaces[0].accessConfigs[0].natIP)')
+EXTERNAL_IP=$(az network public-ip show -n ${instance}PublicIP --query ipAddress -o tsv)
 
-INTERNAL_IP=$(gcloud compute instances describe ${instance} \
-  --format 'value(networkInterfaces[0].networkIP)')
-
+INTERNAL_IP=$(az network nic show -n ${instance}VMnic   --query '{IP:ipConfigurations[0].privateIpAddress}' -o tsv)
 cfssl gencert \
   -ca=ca.pem \
   -ca-key=ca-key.pem \
@@ -213,9 +210,9 @@ The `kubernetes-the-hard-way` static IP address will be included in the list of 
 Retrieve the `kubernetes-the-hard-way` static IP address:
 
 ```
-KUBERNETES_PUBLIC_ADDRESS=$(gcloud compute addresses describe kubernetes-the-hard-way \
-  --region $(gcloud config get-value compute/region) \
-  --format 'value(address)')
+KUBERNETES_PUBLIC_ADDRESS=$(az network public-ip show --n k8s-ip \
+  --query ipAddress \
+  -o tsv)
 ```
 
 Create the Kubernetes API Server certificate signing request:
@@ -265,16 +262,20 @@ kubernetes.pem
 Copy the appropriate certificates and private keys to each worker instance:
 
 ```
-for instance in worker-0 worker-1 worker-2; do
-  gcloud compute scp ca.pem ${instance}-key.pem ${instance}.pem ${instance}:~/
+for instance in k8s-worker-0 k8s-worker-1 k8s-worker-2; do
+EXTERNAL_IP=$(az network public-ip show -n ${instance}PublicIP --query ipAddress -o tsv)
+ssh-keyscan -H ${EXTERNAL_IP} >> ~/.ssh/known_hosts
+scp ca.pem ${instance}-key.pem ${instance}.pem ${EXTERNAL_IP}:~/
 done
 ```
 
 Copy the appropriate certificates and private keys to each controller instance:
 
 ```
-for instance in controller-0 controller-1 controller-2; do
-  gcloud compute scp ca.pem ca-key.pem kubernetes-key.pem kubernetes.pem ${instance}:~/
+for instance in k8s-ctrl-0 k8s-ctrl-1 k8s-ctrl-2; do
+  EXTERNAL_IP=$(az network public-ip show -n ${instance}PublicIP --query ipAddress -o tsv)
+  ssh-keyscan -H ${EXTERNAL_IP} >> ~/.ssh/known_hosts
+  scp ca.pem ca-key.pem kubernetes-key.pem kubernetes.pem ${EXTERNAL_IP}:~/
 done
 ```
 

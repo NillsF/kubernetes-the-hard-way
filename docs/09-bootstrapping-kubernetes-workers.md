@@ -4,10 +4,11 @@ In this lab you will bootstrap three Kubernetes worker nodes. The following comp
 
 ## Prerequisites
 
-The commands in this lab must be run on each worker instance: `worker-0`, `worker-1`, and `worker-2`. Login to each worker instance using the `gcloud` command. Example:
+The commands in this lab must be run on each controller instance: `k8s-worker-0`, `k8s-worker-1`, and `k8s-worker-2`. Login to each controller instance using the common SSH command. Example:
 
 ```
-gcloud compute ssh worker-0
+EXTERNAL_IP=$(az network public-ip show -n k8s-worker-0PublicIP --query ipAddress -o tsv)
+ssh ${EXTERNAL_IP}
 ```
 
 ## Provisioning a Kubernetes Worker Node
@@ -65,9 +66,13 @@ sudo mv kubectl kube-proxy kubelet /usr/local/bin/
 
 Retrieve the Pod CIDR range for the current compute instance:
 
+> If you don't have `jq` on your system, please install it via `sudo apt-get install jq -y`
+
 ```
-POD_CIDR=$(curl -s -H "Metadata-Flavor: Google" \
-  http://metadata.google.internal/computeMetadata/v1/instance/attributes/pod-cidr)
+sudo apt-get install jq -y #OPTIONAL, no need to do this if you have jq already installed.
+TAGS=`curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute/?api-version=2017-08-01" | jq '.tags'`
+CIDR=`(echo ${TAGS##*;} | tr -d '"')`
+POD_CIDR=${CIDR#pod-cidr:}
 ```
 
 Create the `bridge` network configuration file:
@@ -177,7 +182,7 @@ Documentation=https://github.com/kubernetes/kubernetes
 
 [Service]
 ExecStart=/usr/local/bin/kube-proxy \\
-  --cluster-cidr=10.200.0.0/16 \\
+  --cluster-cidr=${POD_CIDR} \\
   --kubeconfig=/var/lib/kube-proxy/kubeconfig \\
   --proxy-mode=iptables \\
   --v=2
@@ -214,7 +219,8 @@ sudo systemctl start containerd cri-containerd kubelet kube-proxy
 Login to one of the controller nodes:
 
 ```
-gcloud compute ssh controller-0
+EXTERNAL_IP=$(az network public-ip show -n k8s-ctrl-0PublicIP --query ipAddress -o tsv)
+ssh ${EXTERNAL_IP}
 ```
 
 List the registered Kubernetes nodes:
@@ -226,10 +232,10 @@ kubectl get nodes
 > output
 
 ```
-NAME       STATUS    ROLES     AGE       VERSION
-worker-0   Ready     <none>    18s       v1.9.0
-worker-1   Ready     <none>    18s       v1.9.0
-worker-2   Ready     <none>    18s       v1.9.0
+NAME           STATUS    ROLES     AGE       VERSION
+k8s-worker-0   Ready     <none>    5m        v1.9.0
+k8s-worker-1   Ready     <none>    2m        v1.9.0
+k8s-worker-2   Ready     <none>    13s       v1.9.0
 ```
 
 Next: [Configuring kubectl for Remote Access](10-configuring-kubectl.md)

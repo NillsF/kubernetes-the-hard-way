@@ -1,47 +1,29 @@
 # Prerequisites
 
-## Google Cloud Platform
+## Azure
 
-This tutorial leverages the [Google Cloud Platform](https://cloud.google.com/) to streamline provisioning of the compute infrastructure required to bootstrap a Kubernetes cluster from the ground up. [Sign up](https://cloud.google.com/free/) for $300 in free credits.
+This tutorial leverages [Azure](https://azure.microsoft.com/en-us/) to streamline provisioning of the compute infrastructure required to bootstrap a Kubernetes cluster from the ground up. [Sign up](https://azure.microsoft.com/en-us/free/) for $200 in free credits.
 
-[Estimated cost](https://cloud.google.com/products/calculator/#id=78df6ced-9c50-48f8-a670-bc5003f2ddaa) to run this tutorial: $0.22 per hour ($5.39 per day).
+## Azure CLI
 
-> The compute resources required for this tutorial exceed the Google Cloud Platform free tier.
+### Install the Azure CLI
 
-## Google Cloud Platform SDK
-
-### Install the Google Cloud SDK
-
-Follow the Google Cloud SDK [documentation](https://cloud.google.com/sdk/) to install and configure the `gcloud` command line utility.
-
-Verify the Google Cloud SDK version is 183.0.0 or higher:
-
-```
-gcloud version
-```
+Follow the Azure [documentation](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest) to install and configure the `az` command line utility.
 
 ### Set a Default Compute Region and Zone
 
-This tutorial assumes a default compute region and zone have been configured.
+This tutorial assumes a default data center region and resource group have been configured.
 
-If you are using the `gcloud` command-line tool for the first time `init` is the easiest way to do this:
-
-```
-gcloud init
-```
-
-Otherwise set a default compute region:
+If you are using the `az` command-line tool for the first time `login` is the easiest way to do this:
 
 ```
-gcloud config set compute/region us-west1
+gcloud login
 ```
 
-Set a default compute zone:
-
+Let's create the resource group for our deployment, and configure the CLI to use this resource group (and its location) as default. It is recommended to create a new resource group for this walkthrough, as we'll remove it in the [Final step](14-cleanup.md).
 ```
-gcloud config set compute/zone us-west1-c
+az group create -l westeurope -n k8s-the-hard-way
+az configure --defaults group=k8s-the-hard-way location=westeurope
 ```
-
-> Use the `gcloud compute zones list` command to view additional regions and zones.
 
 Next: [Installing the Client Tools](02-client-tools.md)

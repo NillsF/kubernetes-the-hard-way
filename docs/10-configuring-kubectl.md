@@ -11,9 +11,9 @@ Each kubeconfig requires a Kubernetes API Server to connect to. To support high 
 Retrieve the `kubernetes-the-hard-way` static IP address:
 
 ```
-KUBERNETES_PUBLIC_ADDRESS=$(gcloud compute addresses describe kubernetes-the-hard-way \
-  --region $(gcloud config get-value compute/region) \
-  --format 'value(address)')
+KUBERNETES_PUBLIC_ADDRESS=$(az network public-ip show --n k8s-ip \
+  --query ipAddress \
+  -o tsv)
 ```
 
 Generate a kubeconfig file suitable for authenticating as the `admin` user:
@@ -69,10 +69,10 @@ kubectl get nodes
 > output
 
 ```
-NAME       STATUS    ROLES     AGE       VERSION
-worker-0   Ready     <none>    1m        v1.9.0
-worker-1   Ready     <none>    1m        v1.9.0
-worker-2   Ready     <none>    1m        v1.9.0
+NAME           STATUS    ROLES     AGE       VERSION
+k8s-worker-0   Ready     <none>    7m        v1.9.0
+k8s-worker-1   Ready     <none>    4m        v1.9.0
+k8s-worker-2   Ready     <none>    2m        v1.9.0
 ```
 
 Next: [Provisioning Pod Network Routes](11-pod-network-routes.md)
