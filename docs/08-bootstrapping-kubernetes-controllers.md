@@ -12,6 +12,11 @@ ssh ${EXTERNAL_IP}
 ```
 
 ## Provision the Kubernetes Control Plane
+Create the Kubernetes configuration directory:
+
+```
+sudo mkdir -p /etc/kubernetes/config
+```
 
 ### Download and Install the Kubernetes Controller Binaries
 
@@ -19,30 +24,26 @@ Download the official Kubernetes release binaries:
 
 ```
 wget -q --show-progress --https-only --timestamping \
-  "https://storage.googleapis.com/kubernetes-release/release/v1.9.0/bin/linux/amd64/kube-apiserver" \
-  "https://storage.googleapis.com/kubernetes-release/release/v1.9.0/bin/linux/amd64/kube-controller-manager" \
-  "https://storage.googleapis.com/kubernetes-release/release/v1.9.0/bin/linux/amd64/kube-scheduler" \
-  "https://storage.googleapis.com/kubernetes-release/release/v1.9.0/bin/linux/amd64/kubectl"
+  "https://storage.googleapis.com/kubernetes-release/release/v1.10.2/bin/linux/amd64/kube-apiserver" \
+  "https://storage.googleapis.com/kubernetes-release/release/v1.10.2/bin/linux/amd64/kube-controller-manager" \
+  "https://storage.googleapis.com/kubernetes-release/release/v1.10.2/bin/linux/amd64/kube-scheduler" \
+  "https://storage.googleapis.com/kubernetes-release/release/v1.10.2/bin/linux/amd64/kubectl"
 ```
 
 Install the Kubernetes binaries:
 
 ```
-chmod +x kube-apiserver kube-controller-manager kube-scheduler kubectl
-```
-
-```
-sudo mv kube-apiserver kube-controller-manager kube-scheduler kubectl /usr/local/bin/
+  chmod +x kube-apiserver kube-controller-manager kube-scheduler kubectl
+  sudo mv kube-apiserver kube-controller-manager kube-scheduler kubectl /usr/local/bin/
 ```
 
 ### Configure the Kubernetes API Server
 
 ```
 sudo mkdir -p /var/lib/kubernetes/
-```
-
-```
-sudo mv ca.pem ca-key.pem kubernetes-key.pem kubernetes.pem encryption-config.yaml /var/lib/kubernetes/
+sudo mv ca.pem ca-key.pem kubernetes-key.pem kubernetes.pem \
+    service-account-key.pem service-account.pem \
+    encryption-config.yaml /var/lib/kubernetes/
 ```
 
 The instance internal IP address will be used to advertise the API Server to members of the cluster. Retrieve the internal IP address for the current compute instance:
@@ -52,17 +53,18 @@ INTERNAL_IP=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/ne
 
 ```
 
+
+
 Create the `kube-apiserver.service` systemd unit file:
 
 ```
-cat > kube-apiserver.service <<EOF
+cat <<EOF | sudo tee /etc/systemd/system/kube-apiserver.service
 [Unit]
 Description=Kubernetes API Server
 Documentation=https://github.com/kubernetes/kubernetes
 
 [Service]
 ExecStart=/usr/local/bin/kube-apiserver \\
-  --admission-control=Initializers,NamespaceLifecycle,NodeRestriction,LimitRanger,ServiceAccount,DefaultStorageClass,ResourceQuota \\
   --advertise-address=${INTERNAL_IP} \\
   --allow-privileged=true \\
   --apiserver-count=3 \\
@@ -73,6 +75,7 @@ ExecStart=/usr/local/bin/kube-apiserver \\
   --authorization-mode=Node,RBAC \\
   --bind-address=0.0.0.0 \\
   --client-ca-file=/var/lib/kubernetes/ca.pem \\
+  --enable-admission-plugins=Initializers,NamespaceLifecycle,NodeRestriction,LimitRanger,ServiceAccount,DefaultStorageClass,ResourceQuota \\
   --enable-swagger-ui=true \\
   --etcd-cafile=/var/lib/kubernetes/ca.pem \\
   --etcd-certfile=/var/lib/kubernetes/kubernetes.pem \\
@@ -80,16 +83,14 @@ ExecStart=/usr/local/bin/kube-apiserver \\
   --etcd-servers=https://10.240.0.10:2379,https://10.240.0.11:2379,https://10.240.0.12:2379 \\
   --event-ttl=1h \\
   --experimental-encryption-provider-config=/var/lib/kubernetes/encryption-config.yaml \\
-  --insecure-bind-address=127.0.0.1 \\
   --kubelet-certificate-authority=/var/lib/kubernetes/ca.pem \\
   --kubelet-client-certificate=/var/lib/kubernetes/kubernetes.pem \\
   --kubelet-client-key=/var/lib/kubernetes/kubernetes-key.pem \\
   --kubelet-https=true \\
   --runtime-config=api/all \\
-  --service-account-key-file=/var/lib/kubernetes/ca-key.pem \\
+  --service-account-key-file=/var/lib/kubernetes/service-account.pem \\
   --service-cluster-ip-range=10.32.0.0/24 \\
   --service-node-port-range=30000-32767 \\
-  --tls-ca-file=/var/lib/kubernetes/ca.pem \\
   --tls-cert-file=/var/lib/kubernetes/kubernetes.pem \\
   --tls-private-key-file=/var/lib/kubernetes/kubernetes-key.pem \\
   --v=2
@@ -100,13 +101,18 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 ```
-
 ### Configure the Kubernetes Controller Manager
+
+Move the `kube-controller-manager` kubeconfig into place:
+
+```
+sudo mv kube-controller-manager.kubeconfig /var/lib/kubernetes/
+```
 
 Create the `kube-controller-manager.service` systemd unit file:
 
 ```
-cat > kube-controller-manager.service <<EOF
+cat <<EOF | sudo tee /etc/systemd/system/kube-controller-manager.service
 [Unit]
 Description=Kubernetes Controller Manager
 Documentation=https://github.com/kubernetes/kubernetes
@@ -118,11 +124,12 @@ ExecStart=/usr/local/bin/kube-controller-manager \\
   --cluster-name=kubernetes \\
   --cluster-signing-cert-file=/var/lib/kubernetes/ca.pem \\
   --cluster-signing-key-file=/var/lib/kubernetes/ca-key.pem \\
+  --kubeconfig=/var/lib/kubernetes/kube-controller-manager.kubeconfig \\
   --leader-elect=true \\
-  --master=http://127.0.0.1:8080 \\
   --root-ca-file=/var/lib/kubernetes/ca.pem \\
-  --service-account-private-key-file=/var/lib/kubernetes/ca-key.pem \\
+  --service-account-private-key-file=/var/lib/kubernetes/service-account-key.pem \\
   --service-cluster-ip-range=10.32.0.0/24 \\
+  --use-service-account-credentials=true \\
   --v=2
 Restart=on-failure
 RestartSec=5
@@ -134,18 +141,36 @@ EOF
 
 ### Configure the Kubernetes Scheduler
 
+Move the `kube-scheduler` kubeconfig into place:
+
+```
+sudo mv kube-scheduler.kubeconfig /var/lib/kubernetes/
+```
+
+Create the `kube-scheduler.yaml` configuration file:
+
+```
+cat <<EOF | sudo tee /etc/kubernetes/config/kube-scheduler.yaml
+apiVersion: componentconfig/v1alpha1
+kind: KubeSchedulerConfiguration
+clientConnection:
+  kubeconfig: "/var/lib/kubernetes/kube-scheduler.kubeconfig"
+leaderElection:
+  leaderElect: true
+EOF
+```
+
 Create the `kube-scheduler.service` systemd unit file:
 
 ```
-cat > kube-scheduler.service <<EOF
+cat <<EOF | sudo tee /etc/systemd/system/kube-scheduler.service
 [Unit]
 Description=Kubernetes Scheduler
 Documentation=https://github.com/kubernetes/kubernetes
 
 [Service]
 ExecStart=/usr/local/bin/kube-scheduler \\
-  --leader-elect=true \\
-  --master=http://127.0.0.1:8080 \\
+  --config=/etc/kubernetes/config/kube-scheduler.yaml \\
   --v=2
 Restart=on-failure
 RestartSec=5
@@ -158,27 +183,60 @@ EOF
 ### Start the Controller Services
 
 ```
-sudo mv kube-apiserver.service kube-scheduler.service kube-controller-manager.service /etc/systemd/system/
-```
 
-```
 sudo systemctl daemon-reload
-```
-
-```
 sudo systemctl enable kube-apiserver kube-controller-manager kube-scheduler
-```
-
-```
 sudo systemctl start kube-apiserver kube-controller-manager kube-scheduler
+
 ```
 
 > Allow up to 10 seconds for the Kubernetes API Server to fully initialize.
 
+### Enable HTTP Health Checks
+
+An [Azure Load Balancer](https://docs.microsoft.com/en-us/azure/load-balancer/) will be used to distribute traffic across the three API servers and allow each API server to terminate TLS connections and validate client certificates. The  load balancer only supports HTTP health checks which means the HTTPS endpoint exposed by the API server cannot be used. As a workaround the nginx webserver can be used to proxy HTTP health checks. In this section nginx will be installed and configured to accept HTTP health checks on port `80` and proxy the connections to the API server on `https://127.0.0.1:6443/healthz`.
+
+> The `/healthz` API server endpoint does not require authentication by default.
+
+Install a basic web server to handle HTTP health checks:
+
+```
+sudo apt-get install -y nginx
+```
+
+```
+cat > kubernetes.default.svc.cluster.local <<EOF
+server {
+  listen      80;
+  server_name kubernetes.default.svc.cluster.local;
+
+  location /healthz {
+     proxy_pass                    https://127.0.0.1:6443/healthz;
+     proxy_ssl_trusted_certificate /var/lib/kubernetes/ca.pem;
+  }
+}
+EOF
+```
+
+```
+  sudo mv kubernetes.default.svc.cluster.local \
+    /etc/nginx/sites-available/kubernetes.default.svc.cluster.local
+
+  sudo ln -s /etc/nginx/sites-available/kubernetes.default.svc.cluster.local /etc/nginx/sites-enabled/
+```
+
+```
+sudo systemctl restart nginx
+```
+
+```
+sudo systemctl enable nginx
+```
+
 ### Verification
 
 ```
-kubectl get componentstatuses
+kubectl get componentstatuses --kubeconfig admin.kubeconfig
 ```
 
 ```
@@ -190,6 +248,22 @@ etcd-0               Healthy   {"health": "true"}
 etcd-1               Healthy   {"health": "true"}
 ```
 
+Test the nginx HTTP health check proxy:
+
+```
+curl -H "Host: kubernetes.default.svc.cluster.local" -i http://127.0.0.1/healthz
+```
+
+```
+HTTP/1.1 200 OK
+Server: nginx/1.14.0 (Ubuntu)
+Date: Mon, 14 May 2018 13:45:39 GMT
+Content-Type: text/plain; charset=utf-8
+Content-Length: 2
+Connection: keep-alive
+
+```
+
 > Remember to run the above commands on each controller node: `k8s-ctrl-0`, `k8s-ctrl-1`, and `k8s-ctrl-2`.
 
 ## RBAC for Kubelet Authorization
@@ -199,13 +273,13 @@ In this section you will configure RBAC permissions to allow the Kubernetes API 
 > This tutorial sets the Kubelet `--authorization-mode` flag to `Webhook`. Webhook mode uses the [SubjectAccessReview](https://kubernetes.io/docs/admin/authorization/#checking-api-access) API to determine authorization.
 
 ```
-gcloud compute ssh controller-0
-```
+EXTERNAL_IP=$(az network public-ip show -n k8s-ctrl-0PublicIP --query ipAddress -o tsv)
+ssh ${EXTERNAL_IP}```
 
 Create the `system:kube-apiserver-to-kubelet` [ClusterRole](https://kubernetes.io/docs/admin/authorization/rbac/#role-and-clusterrole) with permissions to access the Kubelet API and perform most common tasks associated with managing pods:
 
 ```
-cat <<EOF | kubectl apply -f -
+cat <<EOF | kubectl apply --kubeconfig admin.kubeconfig -f -
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
@@ -233,7 +307,7 @@ The Kubernetes API Server authenticates to the Kubelet as the `kubernetes` user 
 Bind the `system:kube-apiserver-to-kubelet` ClusterRole to the `kubernetes` user:
 
 ```
-cat <<EOF | kubectl apply -f -
+cat <<EOF | kubectl apply --kubeconfig admin.kubeconfig -f -
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
@@ -319,12 +393,12 @@ curl --cacert ca.pem https://${KUBERNETES_PUBLIC_ADDRESS}:6443/version
 ```
 {
   "major": "1",
-  "minor": "9",
-  "gitVersion": "v1.9.0",
-  "gitCommit": "925c127ec6b946659ad0fd596fa959be43f0cc05",
+  "minor": "10",
+  "gitVersion": "v1.10.2",
+  "gitCommit": "81753b10df112992bf51bbc2c2f85208aad78335",
   "gitTreeState": "clean",
-  "buildDate": "2017-12-15T20:55:30Z",
-  "goVersion": "go1.9.2",
+  "buildDate": "2018-04-27T09:10:24Z",
+  "goVersion": "go1.9.3",
   "compiler": "gc",
   "platform": "linux/amd64"
 }

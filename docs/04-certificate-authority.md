@@ -152,12 +152,12 @@ done
 Results:
 
 ```
-worker-0-key.pem
-worker-0.pem
-worker-1-key.pem
-worker-1.pem
-worker-2-key.pem
-worker-2.pem
+k8s-worker-0-key.pem
+k8s-worker-0.pem
+k8s-worker-1-key.pem
+k8s-worker-1.pem
+k8s-worker-2-key.pem
+k8s-worker-2.pem
 ```
 
 ### The kube-proxy Client Certificate
@@ -202,6 +202,48 @@ Results:
 kube-proxy-key.pem
 kube-proxy.pem
 ```
+### The Scheduler Client Certificate
+
+Generate the `kube-scheduler` client certificate and private key:
+
+```
+
+cat > kube-scheduler-csr.json <<EOF
+{
+  "CN": "system:kube-scheduler",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "US",
+      "L": "Portland",
+      "O": "system:kube-scheduler",
+      "OU": "Kubernetes The Hard Way",
+      "ST": "Oregon"
+    }
+  ]
+}
+EOF
+
+cfssl gencert \
+  -ca=ca.pem \
+  -ca-key=ca-key.pem \
+  -config=ca-config.json \
+  -profile=kubernetes \
+  kube-scheduler-csr.json | cfssljson -bare kube-scheduler
+
+```
+
+Results:
+
+```
+kube-scheduler-key.pem
+kube-scheduler.pem
+```
+
+
 
 ### The Kubernetes API Server Certificate
 
@@ -257,6 +299,54 @@ kubernetes-key.pem
 kubernetes.pem
 ```
 
+
+## The Service Account Key Pair
+
+The Kubernetes Controller Manager leverages a key pair to generate and sign service account tokens as describe in the [managing service accounts](https://kubernetes.io/docs/admin/service-accounts-admin/) documentation.
+
+Generate the `service-account` certificate and private key:
+
+```
+
+cat > service-account-csr.json <<EOF
+{
+  "CN": "service-accounts",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "US",
+      "L": "Portland",
+      "O": "Kubernetes",
+      "OU": "Kubernetes The Hard Way",
+      "ST": "Oregon"
+    }
+  ]
+}
+EOF
+
+cfssl gencert \
+  -ca=ca.pem \
+  -ca-key=ca-key.pem \
+  -config=ca-config.json \
+  -profile=kubernetes \
+  service-account-csr.json | cfssljson -bare service-account
+
+```
+
+Results:
+
+```
+service-account-key.pem
+service-account.pem
+```
+
+
+
+
+
 ## Distribute the Client and Server Certificates
 
 Copy the appropriate certificates and private keys to each worker instance:
@@ -275,7 +365,8 @@ Copy the appropriate certificates and private keys to each controller instance:
 for instance in k8s-ctrl-0 k8s-ctrl-1 k8s-ctrl-2; do
   EXTERNAL_IP=$(az network public-ip show -n ${instance}PublicIP --query ipAddress -o tsv)
   ssh-keyscan -H ${EXTERNAL_IP} >> ~/.ssh/known_hosts
-  scp ca.pem ca-key.pem kubernetes-key.pem kubernetes.pem ${EXTERNAL_IP}:~/
+  scp ca.pem ca-key.pem kubernetes-key.pem kubernetes.pem \
+   service-account-key.pem service-account.pem ${EXTERNAL_IP}:~/
 done
 ```
 

@@ -36,8 +36,7 @@ Create a network security group that allows internal communication across all pr
 az network nsg create -n k8s-nsg
 az network nsg rule create --nsg-name k8s-nsg -n k8s-ssh-https --priority 1000 \
 --source-address-prefixes 0.0.0.0/0 --source-port-ranges  0-65535 \
---destination-address-prefixes VirtualNetwork --destination-port-ranges 22 443 6443 \ 
---protocol Tcp --access Allow
+--destination-address-prefixes VirtualNetwork --destination-port-ranges 22 443 6443 --protocol Tcp --access Allow
 az network nsg rule create --nsg-name k8s-nsg -n k8s-internal --priority 1010 \
 --source-address-prefixes VirtualNetwork --source-port-ranges  \* \
 --destination-address-prefixes VirtualNetwork --destination-port-ranges \* \
@@ -67,13 +66,14 @@ az network nsg rule list --nsg-name k8s-nsg --output table
 > output
 
 ```
-Access    DestinationAddressPrefix    Direction    Name                  Priority  Protocol    ProvisioningState    ResourceGroup     SourceAddressPrefix    SourcePortRange    DestinationPortRange
---------  --------------------------  -----------  ------------------  ----------  ----------  -------------------  ----------------  ---------------------  -----------------  ----------------------
-Allow     VirtualNetwork              Inbound      k8s-ssh-https             1000  Tcp         Succeeded            k8s-the-hard-way  0.0.0.0/0              0-65535
-Allow     VirtualNetwork              Inbound      k8s-internal              1010  *           Succeeded            k8s-the-hard-way  VirtualNetwork         *                  *
-Deny      0.0.0.0/0                   Inbound      k8s-deny-other-UDP        4030  Udp         Succeeded            k8s-the-hard-way  0.0.0.0/0              *                  *
-Deny      0.0.0.0/0                   Inbound      k8s-deny-other-tcp        4020  Tcp         Succeeded            k8s-the-hard-way  0.0.0.0/0              *                  *
-Allow     0.0.0.0/0                   Inbound      k8s-allow-icmp            4040  *           Succeeded            k8s-the-hard-way  0.0.0.0/0              *                  *
+
+Name                ResourceGroup       Priority  SourcePortRanges    SourceAddressPrefixes    SourceASG    Access    Protocol    Direction    DestinationPortRanges    DestinationAddressPrefixes    DestinationASG
+------------------  ----------------  ----------  ------------------  -----------------------  -----------  --------  ----------  -----------  -----------------------  ----------------------------  ----------------
+k8s-ssh-https       k8s-the-hard-way        1000  0-65535             0.0.0.0/0                None         Allow     Tcp         Inbound      22 443 6443              VirtualNetwork                None
+k8s-internal        k8s-the-hard-way        1010  *                   VirtualNetwork           None         Allow     *           Inbound      *                        VirtualNetwork                None
+k8s-deny-other-tcp  k8s-the-hard-way        4020  *                   0.0.0.0/0                None         Deny      Tcp         Inbound      *                        0.0.0.0/0                     None
+k8s-deny-other-UDP  k8s-the-hard-way        4030  *                   0.0.0.0/0                None         Deny      Udp         Inbound      *                        0.0.0.0/0                     None
+k8s-allow-icmp      k8s-the-hard-way        4040  *                   0.0.0.0/0                None         Allow     *           Inbound      *                        0.0.0.0/0                     None
 ```
 
 Last step is to link this NSG to our subnet.

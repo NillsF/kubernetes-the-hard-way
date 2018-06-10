@@ -4,9 +4,7 @@ In this lab you will generate [Kubernetes configuration files](https://kubernete
 
 ## Client Authentication Configs
 
-In this section you will generate kubeconfig files for the `kubelet` and `kube-proxy` clients.
-
-> The `scheduler` and `controller manager` access the Kubernetes API Server locally over an insecure API port which does not require authentication. The Kubernetes API Server's insecure port is only enabled for local access.
+In this section you will generate kubeconfig files for the `controller manager`, `kubelet`, `kube-proxy`, and `scheduler` clients and the `admin` user.
 
 ### Kubernetes Public IP Address
 
@@ -52,40 +50,179 @@ done
 Results:
 
 ```
-worker-0.kubeconfig
-worker-1.kubeconfig
-worker-2.kubeconfig
+k8s-worker-0.kubeconfig
+k8s-worker-1.kubeconfig
+k8s-worker-2.kubeconfig
 ```
 
 ### The kube-proxy Kubernetes Configuration File
 
 Generate a kubeconfig file for the `kube-proxy` service:
 
+
 ```
+
 kubectl config set-cluster kubernetes-the-hard-way \
   --certificate-authority=ca.pem \
   --embed-certs=true \
   --server=https://${KUBERNETES_PUBLIC_ADDRESS}:6443 \
   --kubeconfig=kube-proxy.kubeconfig
-```
 
-```
-kubectl config set-credentials kube-proxy \
+kubectl config set-credentials system:kube-proxy \
   --client-certificate=kube-proxy.pem \
   --client-key=kube-proxy-key.pem \
   --embed-certs=true \
   --kubeconfig=kube-proxy.kubeconfig
-```
 
-```
 kubectl config set-context default \
   --cluster=kubernetes-the-hard-way \
-  --user=kube-proxy \
+  --user=system:kube-proxy \
   --kubeconfig=kube-proxy.kubeconfig
-```
+
+kubectl config use-context default --kubeconfig=kube-proxy.kubeconfig
 
 ```
-kubectl config use-context default --kubeconfig=kube-proxy.kubeconfig
+
+Results:
+
+```
+kube-proxy.kubeconfig
+```
+### The kube-controller-manager Kubernetes Configuration File
+
+Generate a kubeconfig file for the `kube-controller-manager` service:
+
+```
+kubectl config set-cluster kubernetes-the-hard-way \
+  --certificate-authority=ca.pem \
+  --embed-certs=true \
+  --server=https://127.0.0.1:6443 \
+  --kubeconfig=kube-controller-manager.kubeconfig
+
+kubectl config set-credentials system:kube-controller-manager \
+  --client-certificate=kube-controller-manager.pem \
+  --client-key=kube-controller-manager-key.pem \
+  --embed-certs=true \
+  --kubeconfig=kube-controller-manager.kubeconfig
+
+kubectl config set-context default \
+  --cluster=kubernetes-the-hard-way \
+  --user=system:kube-controller-manager \
+  --kubeconfig=kube-controller-manager.kubeconfig
+
+kubectl config use-context default --kubeconfig=kube-controller-manager.kubeconfig
+```
+
+Results:
+
+```
+kube-controller-manager.kubeconfig
+```
+
+### The kube-scheduler Kubernetes Configuration File
+
+Generate a kubeconfig file for the `kube-scheduler` service:
+
+```
+kubectl config set-cluster kubernetes-the-hard-way \
+  --certificate-authority=ca.pem \
+  --embed-certs=true \
+  --server=https://127.0.0.1:6443 \
+  --kubeconfig=kube-scheduler.kubeconfig
+
+kubectl config set-credentials system:kube-scheduler \
+  --client-certificate=kube-scheduler.pem \
+  --client-key=kube-scheduler-key.pem \
+  --embed-certs=true \
+  --kubeconfig=kube-scheduler.kubeconfig
+
+kubectl config set-context default \
+  --cluster=kubernetes-the-hard-way \
+  --user=system:kube-scheduler \
+  --kubeconfig=kube-scheduler.kubeconfig
+
+kubectl config use-context default --kubeconfig=kube-scheduler.kubeconfig
+```
+
+Results:
+
+```
+kube-scheduler.kubeconfig
+```
+
+### The Controller Manager Client Certificate
+
+Generate the `kube-controller-manager` client certificate and private key:
+
+```
+{
+
+cat > kube-controller-manager-csr.json <<EOF
+{
+  "CN": "system:kube-controller-manager",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "US",
+      "L": "Portland",
+      "O": "system:kube-controller-manager",
+      "OU": "Kubernetes The Hard Way",
+      "ST": "Oregon"
+    }
+  ]
+}
+EOF
+
+cfssl gencert \
+  -ca=ca.pem \
+  -ca-key=ca-key.pem \
+  -config=ca-config.json \
+  -profile=kubernetes \
+  kube-controller-manager-csr.json | cfssljson -bare kube-controller-manager
+
+}
+```
+
+Results:
+
+```
+kube-controller-manager-key.pem
+kube-controller-manager.pem
+```
+
+
+### The admin Kubernetes Configuration File
+
+Generate a kubeconfig file for the `admin` user:
+
+```
+kubectl config set-cluster kubernetes-the-hard-way \
+  --certificate-authority=ca.pem \
+  --embed-certs=true \
+  --server=https://127.0.0.1:6443 \
+  --kubeconfig=admin.kubeconfig
+
+kubectl config set-credentials admin \
+  --client-certificate=admin.pem \
+  --client-key=admin-key.pem \
+  --embed-certs=true \
+  --kubeconfig=admin.kubeconfig
+
+kubectl config set-context default \
+  --cluster=kubernetes-the-hard-way \
+  --user=admin \
+  --kubeconfig=admin.kubeconfig
+
+kubectl config use-context default --kubeconfig=admin.kubeconfig
+```
+
+Results:
+
+```
+admin.kubeconfig
 ```
 
 ## Distribute the Kubernetes Configuration Files
@@ -98,5 +235,12 @@ for instance in k8s-worker-0 k8s-worker-1 k8s-worker-2; do
   scp ${instance}.kubeconfig kube-proxy.kubeconfig ${EXTERNAL_IP}:~/
 done
 ```
+Copy the appropriate `kube-controller-manager` and `kube-scheduler` kubeconfig files to each controller instance:
 
+```
+for instance in k8s-ctrl-0 k8s-ctrl-1 k8s-ctrl-2; do
+  EXTERNAL_IP=$(az network public-ip show -n ${instance}PublicIP --query ipAddress -o tsv)
+  scp admin.kubeconfig kube-controller-manager.kubeconfig kube-scheduler.kubeconfig ${EXTERNAL_IP}:~/
+done
+```
 Next: [Generating the Data Encryption Config and Key](06-data-encryption-keys.md)

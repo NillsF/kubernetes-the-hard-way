@@ -36,7 +36,7 @@ az network vnet subnet update --name k8s-cluster --vnet-name k8s-the-hard-way --
 List the routes in the `k8s-workers` route table:
 
 ```
-az network route-table route list --route-table-name k8s-workers
+az network route-table route list --route-table-name k8s-workers --output table
 ```
 
 > output
