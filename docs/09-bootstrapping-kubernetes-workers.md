@@ -258,9 +258,7 @@ EOF
 ```
 ### Start the Worker Services
 
-```
-sudo mv kubelet.service kube-proxy.service /etc/systemd/system/
-```
+
 
 ```
   sudo systemctl daemon-reload

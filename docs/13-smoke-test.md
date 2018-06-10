@@ -136,8 +136,9 @@ kubectl logs $POD_NAME
 127.0.0.1 - - [20/Feb/2018:13:16:52 +0000] "GET /robots.txt HTTP/1.1" 404 571 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.167 Safari/537.36" "-"
 2018/02/20 13:16:52 [error] 5#5: *3 open() "/usr/share/nginx/html/robots.txt" failed (2: No such file or directory), client: 127.0.0.1, server: localhost, request: "GET /robots.txt HTTP/1.1", host: "localhost:8080"
 2018/02/20 13:16:52 [error] 5#5: *2 open() "/usr/share/nginx/html/favicon.ico" failed (2: No such file or directory), client: 127.0.0.1, server: localhost, request: "GET /favicon.ico HTTP/1.1", host: "localhost:8080", referrer: "http://localhost:8080/"
-127.0.0.1 - - [20/Feb/2018:13:16:52 +0000] "GET /favicon.ico HTTP/1.1" 404 571 "http://localhost:8080/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.167 Safari/537.36" "-"```
+127.0.0.1 - - [20/Feb/2018:13:16:52 +0000] "GET /favicon.ico HTTP/1.1" 404 571 "http://localhost:8080/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.167 Safari/537.36" "-"
 ```
+
 ### Exec
 
 In this section you will verify the ability to [execute commands in a container](https://kubernetes.io/docs/tasks/debug-application-cluster/get-shell-running-container/#running-individual-commands-in-a-container).

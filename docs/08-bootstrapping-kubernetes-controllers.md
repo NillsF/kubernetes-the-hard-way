@@ -274,7 +274,8 @@ In this section you will configure RBAC permissions to allow the Kubernetes API 
 
 ```
 EXTERNAL_IP=$(az network public-ip show -n k8s-ctrl-0PublicIP --query ipAddress -o tsv)
-ssh ${EXTERNAL_IP}```
+ssh ${EXTERNAL_IP}
+```
 
 Create the `system:kube-apiserver-to-kubelet` [ClusterRole](https://kubernetes.io/docs/admin/authorization/rbac/#role-and-clusterrole) with permissions to access the Kubelet API and perform most common tasks associated with managing pods:
 
